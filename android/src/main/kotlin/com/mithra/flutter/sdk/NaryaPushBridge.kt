@@ -58,13 +58,54 @@ internal object NaryaPushBridge {
      */
     private const val EXTRA_TAP_REPORTED = "com.mithra.flutter.sdk.TAP_REPORTED"
 
+    /**
+     * Payload keys a tap's message identity is read from, most specific first.
+     *
+     * `narya_message_id` is the SDK's own tap extra; `mithra_message_id` is the
+     * gwaihir payload key it is derived from, and the Firebase ids are the last
+     * resort for a payload that carried no Mithra id at all.
+     */
+    private val MESSAGE_ID_KEYS = listOf(
+        EXTRA_MESSAGE_ID,
+        "mithra_message_id",
+        "google.message_id",
+        "gcm.message_id",
+    )
+
+    /**
+     * How long a tracked tap stays matchable by its echo.
+     *
+     * The echo follows the `push_opened` event within milliseconds while the
+     * app runs; the slowest path by far is a cold start, where the host only
+     * claims the tap through `takeInitialPushPayload` once its Dart side is up.
+     * Minutes of head room cost nothing - a record can suppress at most the one
+     * `trackOpened` call that matches it - and the cap below bounds the memory.
+     */
+    private const val TAP_ECHO_WINDOW_MS = 5L * 60L * 1000L
+
+    /** Hard cap on remembered taps; a host that never echoes must not grow this. */
+    private const val MAX_REPORTED_TAPS = 16
+
+    private data class ReportedTap(val identity: String, val reportedAt: Long)
+
+    /** Taps tracked by the bridge and not yet echoed back. Guarded by its own monitor. */
+    private val reportedTaps = ArrayDeque<ReportedTap>()
+
+    /** Time source, overridable from tests so the expiry window is testable. */
+    internal var clock: () -> Long = { System.currentTimeMillis() }
+
     private const val OPTION_SMALL_ICON = "smallIcon"
     private const val OPTION_TAP_ACTIVITY = "tapActivity"
     private const val OPTION_CHANNEL_ID = "channelId"
     private const val OPTION_CHANNEL_NAME = "channelName"
 
-    /** `is_silent` values the SDK reads as enabled, after trimming and lower-casing. */
-    private val SILENT_TRUTHY_VALUES = setOf("true", "1", "yes")
+    /**
+     * Flag values the SDK reads as enabled, after trimming and lower-casing.
+     *
+     * Shared by the `is_silent` payload flag and the string tap marker the SDK
+     * stamps on its tap intents, which the SDK parses the same way.
+     */
+    private val TRUTHY_VALUES = setOf("true", "1", "yes")
 
     /**
      * Decodes the `NaryaPushDisplayOptions.toMap()` wire form.
@@ -98,12 +139,38 @@ internal object NaryaPushBridge {
      */
     fun postsNotification(data: Map<String, String>): Boolean {
         val flag = flatten(data)[WIRE_KEY_IS_SILENT]
-        return flag?.trim()?.lowercase() !in SILENT_TRUTHY_VALUES
+        return flag?.trim()?.lowercase() !in TRUTHY_VALUES
     }
 
-    /** Whether [intent] carries Narya notification-tap extras. */
-    fun isPushOpen(intent: Intent?): Boolean =
-        intent?.getBooleanExtra(EXTRA_PUSH_OPENED, false) == true
+    /**
+     * Whether [intent] carries Narya notification-tap extras.
+     *
+     * The SDK writes [EXTRA_PUSH_OPENED] as the **string** `"true"`, because a
+     * tap intent's extras are the payload's own string-valued FCM data map plus
+     * a few string markers (`PushNotificationRenderer.tapIntentExtras`). Reading
+     * it as a boolean therefore never matched: `Intent.getBooleanExtra` refuses
+     * the stored `String` and falls back to the default, logging
+     * `Key narya_push_opened expected Boolean but value was a java.lang.String`,
+     * so every Android tap was dropped before reaching Dart.
+     *
+     * The raw extra is read and both encodings are accepted: the string form is
+     * the SDK's current contract, and tolerating a boolean means a future SDK
+     * that stamps a real `Boolean` cannot silently break tap reporting a second
+     * time. String truthiness matches the SDK's own flag parsing
+     * ([TRUTHY_VALUES]): trimmed, lower-cased, `true` / `1` / `yes`.
+     */
+    fun isPushOpen(intent: Intent?): Boolean {
+        @Suppress("DEPRECATION")
+        val marker = intent?.extras?.get(EXTRA_PUSH_OPENED)
+        return isPushOpenMarker(marker)
+    }
+
+    /** Reads one [EXTRA_PUSH_OPENED] extra value as the tap marker it encodes. */
+    private fun isPushOpenMarker(value: Any?): Boolean = when (value) {
+        is Boolean -> value
+        is String -> value.trim().lowercase() in TRUTHY_VALUES
+        else -> false
+    }
 
     /** Whether this plugin has already reported the tap [intent] carries. */
     fun isTapReported(intent: Intent): Boolean =
@@ -116,6 +183,103 @@ internal object NaryaPushBridge {
      */
     fun markTapReported(intent: Intent) {
         intent.putExtra(EXTRA_TAP_REPORTED, true)
+    }
+
+    /**
+     * Records that the bridge has tracked `push_opened` for the tap [intent]
+     * carries, so the host echoing that same tap back through
+     * `push.trackOpened` does not track it a second time.
+     *
+     * The intent marker above cannot cover this: the echo arrives over the
+     * method channel as a plain map, with no intent at all. The tap is
+     * therefore remembered by its own identity - see [tapIdentityOf] - rather
+     * than by the object that carried it.
+     */
+    fun rememberReportedTap(intent: Intent) {
+        val identity = tapIdentityOf(tapPayloadKeysOf(intent)) ?: return
+        synchronized(reportedTaps) {
+            dropExpiredTaps(clock())
+            reportedTaps.addLast(ReportedTap(identity, clock()))
+            while (reportedTaps.size > MAX_REPORTED_TAPS) {
+                reportedTaps.removeFirst()
+            }
+        }
+    }
+
+    /**
+     * Whether [payload] is the echo of a tap this bridge has already tracked,
+     * in which case the record is consumed and the caller must not track it
+     * again.
+     *
+     * Consuming, rather than merely matching, is what keeps a genuine second
+     * tap on the same notification reportable: every tap the bridge tracks adds
+     * its own record, and every echo removes exactly one. A host that never
+     * echoes leaves records behind, which expire after [TAP_ECHO_WINDOW_MS] and
+     * are capped at [MAX_REPORTED_TAPS], and a host tracking a notification the
+     * bridge never reported - one it rendered itself - carries no tap extras at
+     * all and so never matches.
+     */
+    fun consumeReportedTapEcho(payload: Map<String, String>): Boolean {
+        val identity = tapIdentityOf(payload) ?: return false
+        synchronized(reportedTaps) {
+            val now = clock()
+            dropExpiredTaps(now)
+            val index = reportedTaps.indexOfFirst { it.identity == identity }
+            if (index < 0) return false
+            reportedTaps.removeAt(index)
+            return true
+        }
+    }
+
+    /** Forgets every remembered tap. Test seam; also used when the SDK is shut down. */
+    fun clearReportedTaps() {
+        synchronized(reportedTaps) { reportedTaps.clear() }
+    }
+
+    /**
+     * The identity of the tap a tap-intent payload describes, or `null` when
+     * the payload does not describe one.
+     *
+     * Only a payload carrying the SDK's own tap marker qualifies, which is what
+     * separates an echoed tap payload from the raw FCM data map a host hands to
+     * `trackOpened` for a notification it rendered itself: the marker rides tap
+     * intents only. The identity is the message the notification belongs to
+     * plus the action button that was tapped, so a body tap and a button tap on
+     * the same notification stay distinct taps. `narya_message_id` is the SDK's
+     * own extra; the FCM message id is the fallback for a payload that carried
+     * no Mithra message id.
+     */
+    private fun tapIdentityOf(payload: Map<String, String>): String? {
+        if (!isPushOpenMarker(payload[EXTRA_PUSH_OPENED])) return null
+        val messageId = MESSAGE_ID_KEYS
+            .firstNotNullOfOrNull { key -> payload[key]?.trim()?.takeIf { it.isNotEmpty() } }
+            ?: return null
+        return messageId + "\u0000" + (payload[EXTRA_ACTION_ID]?.trim().orEmpty())
+    }
+
+    /**
+     * The few extras a tap identity is read from, as strings.
+     *
+     * Read one key at a time rather than by walking the whole bundle: the tap
+     * marker is the only value that may be a non-string, and
+     * [Intent.getStringExtra] answers `null` for it without the log line a
+     * bundle-wide cast would produce.
+     */
+    private fun tapPayloadKeysOf(intent: Intent): Map<String, String> {
+        val result = LinkedHashMap<String, String>()
+        @Suppress("DEPRECATION")
+        intent.extras?.get(EXTRA_PUSH_OPENED)?.let { result[EXTRA_PUSH_OPENED] = it.toString() }
+        for (key in MESSAGE_ID_KEYS + EXTRA_ACTION_ID) {
+            intent.getStringExtra(key)?.let { result[key] = it }
+        }
+        return result
+    }
+
+    private fun dropExpiredTaps(now: Long) {
+        while (reportedTaps.isNotEmpty()) {
+            if (now - reportedTaps.first().reportedAt <= TAP_ECHO_WINDOW_MS) return
+            reportedTaps.removeFirst()
+        }
     }
 
     /**

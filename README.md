@@ -158,7 +158,7 @@ are shared: the podspec and the Swift package both compile
 
 `minSdk 21`, JDK 17. The plugin declares the Mithra Maven repository itself, so
 no app-side repository configuration is required. It resolves
-`com.mithra.sdk:android:1.4.0`.
+`com.mithra.sdk:android:1.4.2`.
 
 `com.mithra.sdk:inapp-ui` is **not** a dependency: that artifact is the native
 Compose inbox UI, and a Flutter app builds its inbox from Flutter widgets over
@@ -359,8 +359,18 @@ await Narya.push.setToken(token);
 await Narya.push.clearToken(); // on sign-out, if you stop targeting the device
 
 await Narya.push.trackReceived(message.data);
-await Narya.push.trackOpened(message.data);
 ```
+
+> **Do not call `trackOpened` for a tap the SDK reported to you.** The bridge
+> tracks `push_opened` itself, from the notification tap, and *then* hands you
+> the payload - so `onPushOpened` and `takeInitialPushPayload` deliver taps
+> that are already tracked. Handing one of those payloads back to `trackOpened`
+> is recognised and ignored rather than counted twice, but do not write it:
+> listen and route, nothing more (see "Routing is yours" below).
+>
+> `trackOpened` is for a tap the SDK never saw - a notification your own code
+> posted and routed, from a raw `firebase_messaging` payload. Gate that call on
+> `isNaryaPush`.
 
 On Android, tracking alone is not enough: Mithra pushes are **data-only** FCM
 messages, so nothing appears unless you call `handlePushMessage` (see

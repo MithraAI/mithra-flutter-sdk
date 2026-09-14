@@ -167,13 +167,17 @@ class MithraFlutterSdkPlugin :
 
     /**
      * Reports one notification tap: tracks `push_opened` and emits the tap to
-     * Dart. Hosts must not call `Narya.push.trackOpened` for the same tap.
+     * Dart.
      *
-     * The tap extras live on the activity intent for as long as that intent
-     * does, and `onAttachedToActivity` runs again whenever the activity is
-     * recreated, so a handled intent is marked and skipped on later passes.
-     * The marker is an extra of this plugin's own; the SDK's extras are left
-     * untouched so host code can still read them.
+     * Two guards keep one tap to one event. The tap extras live on the activity
+     * intent for as long as that intent does, and `onAttachedToActivity` runs
+     * again whenever the activity is recreated, so a handled intent is marked
+     * and skipped on later passes; the marker is an extra of this plugin's own,
+     * and the SDK's extras are left untouched so host code can still read them.
+     * The tap is additionally remembered by its own identity, which is what
+     * lets `push.trackOpened` recognise - and ignore - the host handing the
+     * very same tap payload straight back, the shape every `onPushOpened` /
+     * `takeInitialPushPayload` listener that also tracks the open has.
      */
     private fun handleIntent(intent: Intent?, isColdStart: Boolean) {
         if (intent == null || !NaryaPushBridge.isPushOpen(intent)) return
@@ -189,13 +193,15 @@ class MithraFlutterSdkPlugin :
             return
         }
         NaryaPushBridge.markTapReported(intent)
+        NaryaPushBridge.rememberReportedTap(intent)
         val encoded = NaryaPushBridge.encodeTap(instance, intent)
         if (isColdStart) {
             @Suppress("UNCHECKED_CAST")
             initialPushPayload.set(encoded["payload"] as? Map<String, Any?> ?: emptyMap())
         }
-        // iOS tracks the open inside `didReceive(response:)`, so the bridge owns
-        // this on both platforms and the host never calls trackOpened for a tap.
+        // iOS tracks the open inside `didReceive(response:)`, so the bridge
+        // owns this on both platforms; a host that also calls trackOpened with
+        // the payload it is about to receive is de-duplicated there.
         instance.trackPushNotificationOpened(intent)
         eventSink.send(EVENT_PUSH_OPENED, encoded)
     }
@@ -319,6 +325,10 @@ class MithraFlutterSdkPlugin :
 
                 "shutdown" -> withAnalytics(result) {
                     uninstallInAppObservers(it)
+                    // Nothing may survive into the next SDK lifetime, least of
+                    // all a tap record that would swallow the first trackOpened
+                    // of a freshly initialized instance.
+                    NaryaPushBridge.clearReportedTaps()
                     NaryaAnalyticsHolder.clear(applicationContext)
                     it.shutdown()
                     result.success(null)
@@ -383,8 +393,24 @@ class MithraFlutterSdkPlugin :
                 result.success(null)
             }
 
+            // A tap the bridge itself reported is already tracked, and the
+            // payload `onPushOpened` / `takeInitialPushPayload` hands the host
+            // is the tap intent's own extras - so a host that tracks the open
+            // it was just told about would double-count it. That echo is
+            // recognised by the tap's identity and dropped; a notification the
+            // host rendered and tracks itself carries no tap extras and is
+            // unaffected.
             "push.trackOpened" -> withRestoredAnalytics(result) {
-                it.trackPushNotificationOpened(payloadArgument(call))
+                val payload = payloadArgument(call)
+                if (NaryaPushBridge.consumeReportedTapEcho(payload)) {
+                    Log.d(
+                        TAG,
+                        "push.trackOpened ignored: the bridge already tracked this tap.",
+                    )
+                    result.success(null)
+                    return@withRestoredAnalytics
+                }
+                it.trackPushNotificationOpened(payload)
                 result.success(null)
             }
 

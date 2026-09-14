@@ -79,6 +79,11 @@ public class MithraFlutterSdkPlugin: NSObject, FlutterPlugin {
     /// The payload of the notification that cold-started the app, consumed once.
     private var initialPushPayload: [String: Any]?
 
+    /// The taps this plugin has already tracked `push_opened` for, so the host
+    /// echoing one back through `push.trackOpened` does not report it twice.
+    /// See `NaryaPushOpenLedger`.
+    private let pushOpenLedger = NaryaPushOpenLedger()
+
     /// An APNs token that arrived before `initialize` completed; applied to the
     /// SDK as soon as it exists.
     private var pendingDeviceToken: Data?
@@ -345,9 +350,25 @@ public class MithraFlutterSdkPlugin: NSObject, FlutterPlugin {
             }
 
         case "push.trackOpened":
+            // A tap the bridge itself reported is already tracked by the time
+            // Dart sees it, and a host that listens on `onPushOpened` or claims
+            // `takeInitialPushPayload` naturally hands that same payload back
+            // here. That echo is recognised by the token the payload carries
+            // and dropped, so one tap stays one `push_opened`; anything else -
+            // a notification the host rendered and routed itself - is tracked.
+            // See `NaryaPushOpenLedger`.
+            let openedPayload = NaryaCodec.userInfo(from: arguments["payload"])
+            if pushOpenLedger.consumeEcho(openedPayload) {
+                NSLog(
+                    "[mithra_flutter_sdk] push.trackOpened ignored: the bridge "
+                        + "already tracked this tap."
+                )
+                result(nil)
+                return
+            }
             withAnalytics(result) {
                 $0.trackPushNotificationOpened(
-                    userInfo: NaryaCodec.userInfo(from: arguments["payload"])
+                    userInfo: NaryaPushOpenLedger.withoutTapToken(openedPayload)
                 )
                 result(nil)
             }
@@ -688,7 +709,7 @@ public class MithraFlutterSdkPlugin: NSObject, FlutterPlugin {
         let payload = NaryaCodec.payload(from: userInfo)
 
         if !eventSink.hasListener {
-            if initialPushPayload == nil { initialPushPayload = payload }
+            if initialPushPayload == nil { initialPushPayload = pushOpenLedger.stamp(payload) }
             return
         }
 
@@ -699,7 +720,7 @@ public class MithraFlutterSdkPlugin: NSObject, FlutterPlugin {
         eventSink.send(
             type: EventType.pushOpened,
             payload: [
-                "payload": payload,
+                "payload": pushOpenLedger.stamp(payload),
                 "deepLink": Analytics.pushDeepLink(from: response)?.absoluteString,
                 "messageId": context.messageId,
                 "actionIdentifier": context.actionIdentifier,
@@ -961,6 +982,7 @@ public class MithraFlutterSdkPlugin: NSObject, FlutterPlugin {
         hasDartNewMessageHandler = false
         deliveryTrackedAt.removeAll()
         initialPushPayload = nil
+        pushOpenLedger.clear()
         pendingDeviceToken = nil
         pendingNotificationResponse = nil
     }

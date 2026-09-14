@@ -1,5 +1,5 @@
 group = 'com.mithra.flutter.sdk'
-version = '1.0.0' // x-release-please-version
+version = '1.0.1' // x-release-please-version
 
 buildscript {
     ext.kotlin_version = '1.9.0'
@@ -26,7 +26,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 // The pinned Narya Android SDK version this bridge is written against.
-ext.naryaAndroidSdkVersion = '1.4.0'
+ext.naryaAndroidSdkVersion = '1.4.2'
 
 android {
     namespace = 'com.mithra.flutter.sdk'
@@ -48,6 +48,7 @@ android {
 
     testOptions {
         unitTests.returnDefaultValues = true
+        unitTests.includeAndroidResources = true
     }
 }
 
@@ -78,6 +79,9 @@ dependencies {
     // `unitTests.returnDefaultValues` would turn every parse into a no-op.
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
+    // Robolectric: the tap-intent readers need a real Intent/Bundle, which the
+    // mockable android.jar cannot provide.
+    testImplementation 'org.robolectric:robolectric:4.14.1'
 }
 
 // --- Optional local-SDK development path -------------------------------------

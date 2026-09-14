@@ -16,7 +16,7 @@ narya_sdk_version = '1.4.0'
 
 Pod::Spec.new do |s|
   s.name             = 'mithra_flutter_sdk'
-  s.version          = '1.0.0' # x-release-please-version
+  s.version          = '1.0.1' # x-release-please-version
   s.summary          = "Mithra's Narya SDK for Flutter."
   s.description      = <<-DESC
   A thin Flutter bridge over the Narya native SDKs for analytics, push

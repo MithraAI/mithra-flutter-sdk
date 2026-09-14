@@ -244,6 +244,13 @@ class NaryaPushManager {
   }
 
   /// Tracks that the user opened a notification.
+  ///
+  /// Call it for a notification your own code posted and routed. A tap the SDK
+  /// itself reported - the payload of an [onPushOpened] event or of
+  /// [takeInitialPushPayload] - has already been tracked when you receive it,
+  /// and handing that same payload back here is recognised and ignored rather
+  /// than counted twice, so listening and tracking cannot double-report one
+  /// tap.
   Future<void> trackOpened(Map<String, Object?> payload) {
     return _platform.invoke('push.trackOpened', <String, Object?>{
       'payload': payload,
