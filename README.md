@@ -158,7 +158,7 @@ are shared: the podspec and the Swift package both compile
 
 `minSdk 21`, JDK 17. The plugin declares the Mithra Maven repository itself, so
 no app-side repository configuration is required. It resolves
-`com.mithra.sdk:android:1.4.2`.
+`com.mithra.sdk:android:1.4.3`.
 
 `com.mithra.sdk:inapp-ui` is **not** a dependency: that artifact is the native
 Compose inbox UI, and a Flutter app builds its inbox from Flutter widgets over

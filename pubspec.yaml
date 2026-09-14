@@ -9,7 +9,7 @@ description: >-
 # the manifest is also what keeps `dart pub publish --dry-run` green, because it
 # warns (and exits 65) when CHANGELOG.md has no section for the version declared
 # here.
-version: 1.0.1
+version: 1.0.2
 homepage: https://mithra.com
 repository: https://github.com/MithraAI/mithra-flutter-sdk
 issue_tracker: https://github.com/MithraAI/mithra-flutter-sdk/issues
