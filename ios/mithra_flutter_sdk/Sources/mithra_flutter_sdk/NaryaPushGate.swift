@@ -8,7 +8,7 @@ import UserNotifications
 /// (`narya-ios` `PushNotificationPayload.isNaryaPush` is the reference; the
 /// parity table is in `docs/api-contract.md`). It lives here rather than being
 /// called on `Analytics` because the bridge needs the predicate in contexts
-/// where no SDK instance is guaranteed. `MithraAnalytics` 1.4.0 does export
+/// where no SDK instance is guaranteed. `MithraAnalytics` 1.5.0 does export
 /// `Analytics.isNaryaPush(userInfo:)`, so this file can be reduced to a
 /// delegation in a follow-up; the rule is kept in sync with the parity table
 /// until then.
@@ -51,6 +51,17 @@ enum NaryaPushGate {
     /// `isNaryaPush` for the notification behind a response.
     static func isNaryaPush(_ response: UNNotificationResponse) -> Bool {
         isNaryaPush(response.notification.request.content.userInfo)
+    }
+
+    /// Whether a response is a dismissal rather than an open - the rule
+    /// deciding whether the native SDK tracks `push_dismissed` or
+    /// `push_opened`. See `NaryaPushDismissal`, which holds the rule itself so
+    /// it can be unit-tested on a host toolchain.
+    static func isDismissal(_ response: UNNotificationResponse) -> Bool {
+        NaryaPushDismissal.isDismissal(
+            response.notification.request.content.userInfo,
+            actionIdentifier: response.actionIdentifier
+        )
     }
 
     /// The Mithra message identifier a payload carries, looked up at the same

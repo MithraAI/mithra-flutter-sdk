@@ -693,7 +693,12 @@ public class MithraFlutterSdkPlugin: NSObject, FlutterPlugin {
     /// Reports a Mithra notification tap to Dart.
     ///
     /// Dismissals are skipped: the native SDK tracks those as `push_dismissed`,
-    /// and `onPushOpened` documents opens only.
+    /// and `onPushOpened` documents opens only. That covers the system dismiss
+    /// gesture and a tap on an action button whose route is `dismiss`, which
+    /// iOS reports under the button's own identifier rather than the system
+    /// one. Android needs no equivalent check: a dismiss button there is a
+    /// broadcast that never reaches the tap activity, so it was never a Dart
+    /// open event.
     ///
     /// A tap processed before the Flutter engine subscribed to the event
     /// channel is a cold start. It is then handed over through
@@ -701,7 +706,7 @@ public class MithraFlutterSdkPlugin: NSObject, FlutterPlugin {
     /// first subscriber, so also sending the envelope would deliver the same
     /// tap twice and route the deep link twice.
     private func emitPushOpened(for response: UNNotificationResponse) {
-        guard response.actionIdentifier != UNNotificationDismissActionIdentifier else {
+        guard !NaryaPushGate.isDismissal(response) else {
             return
         }
 

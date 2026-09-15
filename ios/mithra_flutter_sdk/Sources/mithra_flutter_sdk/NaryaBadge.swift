@@ -13,7 +13,7 @@ import UserNotifications
 /// The implementation lives here rather than being called on `Analytics`
 /// because badge control must work without a live SDK instance. It mirrors,
 /// call for call, the native `Analytics.setBadgeCount(_:completion:)` /
-/// `clearBadge(completion:)` shipped in `MithraAnalytics` 1.4.0: the modern
+/// `clearBadge(completion:)` shipped in `MithraAnalytics` 1.5.0: the modern
 /// `UNUserNotificationCenter.setBadgeCount(_:withCompletionHandler:)` on
 /// iOS 16+, and the deprecated `UIApplication.applicationIconBadgeNumber` on
 /// iOS 15. Delegating to the native methods is a follow-up - the same

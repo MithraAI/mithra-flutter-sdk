@@ -25,7 +25,7 @@ let package = Package(
         .library(name: "mithra-flutter-sdk", targets: ["mithra_flutter_sdk"])
     ],
     dependencies: [
-        .package(url: "https://github.com/MithraAI/mithra-ios-sdk", exact: "1.4.0")
+        .package(url: "https://github.com/MithraAI/mithra-ios-sdk", exact: "1.5.0")
     ],
     targets: [
         .target(

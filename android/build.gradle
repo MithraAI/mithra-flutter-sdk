@@ -1,5 +1,5 @@
 group = 'com.mithra.flutter.sdk'
-version = '1.0.2' // x-release-please-version
+version = '1.0.3' // x-release-please-version
 
 buildscript {
     ext.kotlin_version = '1.9.0'
@@ -26,7 +26,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 // The pinned Narya Android SDK version this bridge is written against.
-ext.naryaAndroidSdkVersion = '1.4.3'
+ext.naryaAndroidSdkVersion = '1.5.0'
 
 android {
     namespace = 'com.mithra.flutter.sdk'
