@@ -116,8 +116,8 @@ platform :ios, '15.0'
 **You do not need to install or configure any native package manager.**
 Everything arrives through pub. `flutter run` (and `flutter build ios`) runs
 `pod install` for you, and the plugin's podspec `prepare_command` then
-downloads `MithraAnalytics-1.5.0.zip` from `https://sdk.mithra.com/ios/`,
-verifies it against the published `checksums-1.5.0.txt`, and unpacks the
+downloads `MithraAnalytics-1.5.1.zip` from `https://sdk.mithra.com/ios/`,
+verifies it against the published `checksums-1.5.1.txt`, and unpacks the
 XCFramework into `ios/Frameworks/`. So the whole iOS setup is:
 
 ```yaml
@@ -147,10 +147,10 @@ support](https://docs.flutter.dev/packages-and-plugins/swift-package-manager),
 the plugin also ships an SwiftPM path and Flutter will use it instead of the
 pod. `ios/mithra_flutter_sdk/Package.swift` resolves the hosted Swift package
 [`MithraAI/mithra-ios-sdk`](https://github.com/MithraAI/mithra-ios-sdk)
-`from: "1.5.0"`, product `MithraAnalytics`. Nothing to add on your side --
+`from: "1.5.1"`, product `MithraAnalytics`. Nothing to add on your side --
 enabling SwiftPM in your Flutter tooling is the whole opt-in.
 
-Both paths pin the **same native SDK version** (1.5.0), and the Swift sources
+Both paths pin the **same native SDK version** (1.5.1), and the Swift sources
 are shared: the podspec and the Swift package both compile
 `ios/mithra_flutter_sdk/Sources/mithra_flutter_sdk/`.
 
@@ -454,9 +454,9 @@ a separate process that Flutter never runs in.
    - **SwiftPM**: add the `mithra-ios-sdk` package to the extension target and
      select the `MithraAnalyticsNotificationService` product.
    - **CocoaPods**: the plugin's podspec does not vendor the extension
-     framework. Download `MithraAnalyticsNotificationService-1.5.0.zip` from
+     framework. Download `MithraAnalyticsNotificationService-1.5.1.zip` from
      `https://sdk.mithra.com/ios/` (verify it against
-     `checksums-1.5.0.txt`) and embed the XCFramework in the extension target.
+     `checksums-1.5.1.txt`) and embed the XCFramework in the extension target.
 3. Make the extension's principal class subclass the SDK's service class, per
    [`narya-ios`](https://github.com/MithraAI/narya-ios)'s README.
 

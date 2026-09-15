@@ -1,5 +1,5 @@
 group = 'com.mithra.flutter.sdk'
-version = '1.0.3' // x-release-please-version
+version = '1.0.4' // x-release-please-version
 
 buildscript {
     ext.kotlin_version = '1.9.0'

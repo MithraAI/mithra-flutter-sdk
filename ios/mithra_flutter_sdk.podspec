@@ -12,11 +12,11 @@
 # ios/mithra_flutter_sdk/Package.swift for that path, which resolves the SDK through
 # the hosted Swift package instead of a vendored binary.
 #
-narya_sdk_version = '1.5.0'
+narya_sdk_version = '1.5.1'
 
 Pod::Spec.new do |s|
   s.name             = 'mithra_flutter_sdk'
-  s.version          = '1.0.3' # x-release-please-version
+  s.version          = '1.0.4' # x-release-please-version
   s.summary          = "Mithra's Narya SDK for Flutter."
   s.description      = <<-DESC
   A thin Flutter bridge over the Narya native SDKs for analytics, push

@@ -8,7 +8,7 @@ import UserNotifications
 /// (`narya-ios` `PushNotificationPayload.isNaryaPush` is the reference; the
 /// parity table is in `docs/api-contract.md`). It lives here rather than being
 /// called on `Analytics` because the bridge needs the predicate in contexts
-/// where no SDK instance is guaranteed. `MithraAnalytics` 1.5.0 does export
+/// where no SDK instance is guaranteed. `MithraAnalytics` 1.5.1 does export
 /// `Analytics.isNaryaPush(userInfo:)`, so this file can be reduced to a
 /// delegation in a follow-up; the rule is kept in sync with the parity table
 /// until then.
