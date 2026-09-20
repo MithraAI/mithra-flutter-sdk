@@ -35,7 +35,13 @@ let package = Package(
             ],
             // Single source of truth: ../mithra_flutter_sdk.podspec points its
             // source_files at this same directory.
-            path: "Sources/mithra_flutter_sdk"
+            path: "Sources/mithra_flutter_sdk",
+            // .copy, not .process: the manifest has to reach the bundle root
+            // unaltered for Apple to find it. The podspec ships the same file
+            // through s.resource_bundles, so both install paths carry it.
+            resources: [
+                .copy("PrivacyInfo.xcprivacy")
+            ]
         )
     ]
 )

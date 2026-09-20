@@ -16,7 +16,7 @@ narya_sdk_version = '1.5.1'
 
 Pod::Spec.new do |s|
   s.name             = 'mithra_flutter_sdk'
-  s.version          = '1.0.4' # x-release-please-version
+  s.version          = '1.0.5' # x-release-please-version
   s.summary          = "Mithra's Narya SDK for Flutter."
   s.description      = <<-DESC
   A thin Flutter bridge over the Narya native SDKs for analytics, push
@@ -29,6 +29,14 @@ Pod::Spec.new do |s|
   # Single source of truth, shared with the Swift Package Manager path.
   s.source_files     = 'mithra_flutter_sdk/Sources/mithra_flutter_sdk/**/*.swift'
   s.dependency 'Flutter'
+
+  # Apple requires a privacy manifest per executable or dynamic library, and a
+  # third-party SDK cannot rely on the host app's or another SDK's. Shipped as a
+  # resource bundle, which is how CocoaPods gets a manifest into a static
+  # framework; the SwiftPM path declares the same file in its target resources.
+  s.resource_bundles = {
+    'mithra_flutter_sdk_privacy' => ['mithra_flutter_sdk/Sources/mithra_flutter_sdk/PrivacyInfo.xcprivacy']
+  }
   # Minimum matches the native SDK's Package.swift (.iOS(.v15)).
   s.platform         = :ios, '15.0'
   s.swift_version    = '5.9'

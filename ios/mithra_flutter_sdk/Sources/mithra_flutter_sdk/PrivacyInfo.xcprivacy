@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    Privacy manifest for the mithra_flutter_sdk iOS bridge.
+
+    Apple requires one per executable or dynamic library, and is explicit that a
+    third-party SDK cannot rely on anybody else's: not the host app's, and not
+    another SDK's. This plugin is its own binary, so it needs this file even
+    though the native MithraAnalytics framework it talks to carries its own.
+
+    Values are checked against Apple's published enumerations by
+    scripts/check-privacy-manifest.py, which runs in CI. Do not add a string that
+    is not in those lists.
+
+    Scope, and why each part is here:
+
+      * NSPrivacyAccessedAPITypes describes what THIS binary calls. That is
+        UserDefaults and nothing else; NaryaPushOwnership stores one namespaced
+        flag there. No file timestamp, boot time, disk space or active keyboard
+        API is reached from any file under Sources/mithra_flutter_sdk.
+
+      * NSPrivacyCollectedDataTypes mirrors the native SDK's declaration. The
+        bridge forwards rather than collects, so this is deliberately a
+        duplicate: it is what a customer who installed `mithra_flutter_sdk`
+        expects to read, and Apple unions the manifests of every bundle in the
+        app. KEEP IT IN STEP with narya-ios's
+        Sources/MithraAnalytics/Resources/PrivacyInfo.xcprivacy when the pinned
+        SDK version moves; that file is the source of truth.
+
+    NSPrivacyCollectedDataTypeLinked is false throughout, matching the native
+    SDK. This SDK holds no identity of its own: it forwards the opaque string the
+    host passes to identify(userId:), and whether that string identifies a real
+    person is the host app's determination. The linkage a customer has to declare
+    is therefore their own, in their app's manifest and nutrition label; the
+    README says so in as many words.
+-->
+<plist version="1.0">
+    <dict>
+        <!-- No IDFA, no ATTrackingManager, no tracking domains. -->
+        <key>NSPrivacyTracking</key>
+        <false/>
+        <key>NSPrivacyTrackingDomains</key>
+        <array/>
+
+        <key>NSPrivacyCollectedDataTypes</key>
+        <array>
+            <!-- device.id (identifierForVendor, when NaryaConfiguration
+                 collectDeviceId is left at its default of true), the generated
+                 anonymousId, and the APNs push token. -->
+            <dict>
+                <key>NSPrivacyCollectedDataType</key>
+                <string>NSPrivacyCollectedDataTypeDeviceID</string>
+                <key>NSPrivacyCollectedDataTypeLinked</key>
+                <false/>
+                <key>NSPrivacyCollectedDataTypeTracking</key>
+                <false/>
+                <key>NSPrivacyCollectedDataTypePurposes</key>
+                <array>
+                    <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+                    <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+                </array>
+            </dict>
+
+            <!-- The userId passed to Narya.identify(). -->
+            <dict>
+                <key>NSPrivacyCollectedDataType</key>
+                <string>NSPrivacyCollectedDataTypeUserID</string>
+                <key>NSPrivacyCollectedDataTypeLinked</key>
+                <false/>
+                <key>NSPrivacyCollectedDataTypeTracking</key>
+                <false/>
+                <key>NSPrivacyCollectedDataTypePurposes</key>
+                <array>
+                    <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+                    <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+                </array>
+            </dict>
+
+            <!-- Narya.track / Narya.screen, in-app and push engagement. -->
+            <dict>
+                <key>NSPrivacyCollectedDataType</key>
+                <string>NSPrivacyCollectedDataTypeProductInteraction</string>
+                <key>NSPrivacyCollectedDataTypeLinked</key>
+                <false/>
+                <key>NSPrivacyCollectedDataTypeTracking</key>
+                <false/>
+                <key>NSPrivacyCollectedDataTypePurposes</key>
+                <array>
+                    <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+                </array>
+            </dict>
+
+            <!-- Event context the native SDK attaches: app name/version/build,
+                 OS, locale, timezone, screen metrics, network reachability. -->
+            <dict>
+                <key>NSPrivacyCollectedDataType</key>
+                <string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
+                <key>NSPrivacyCollectedDataTypeLinked</key>
+                <false/>
+                <key>NSPrivacyCollectedDataTypeTracking</key>
+                <false/>
+                <key>NSPrivacyCollectedDataTypePurposes</key>
+                <array>
+                    <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+                </array>
+            </dict>
+
+            <!-- Traits and event properties supplied by the host app, which the
+                 bridge forwards verbatim and cannot classify. -->
+            <dict>
+                <key>NSPrivacyCollectedDataType</key>
+                <string>NSPrivacyCollectedDataTypeOtherDataTypes</string>
+                <key>NSPrivacyCollectedDataTypeLinked</key>
+                <false/>
+                <key>NSPrivacyCollectedDataTypeTracking</key>
+                <false/>
+                <key>NSPrivacyCollectedDataTypePurposes</key>
+                <array>
+                    <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+                    <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+                </array>
+            </dict>
+        </array>
+
+        <key>NSPrivacyAccessedAPITypes</key>
+        <array>
+            <!-- NaryaPushOwnership keeps one namespaced flag in UserDefaults,
+                 readable and writable only by the host app itself. -->
+            <dict>
+                <key>NSPrivacyAccessedAPIType</key>
+                <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+                <key>NSPrivacyAccessedAPITypeReasons</key>
+                <array>
+                    <string>CA92.1</string>
+                </array>
+            </dict>
+        </array>
+    </dict>
+</plist>

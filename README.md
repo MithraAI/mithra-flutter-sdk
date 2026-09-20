@@ -65,26 +65,38 @@ documents the same surface.
 
 ## Install
 
-The package is not on pub.dev yet. Until the first release is published,
-depend on the repository:
+```bash
+flutter pub add mithra_flutter_sdk
+```
+
+which writes the current release into your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  mithra_flutter_sdk: ^1.0.4
+```
+
+Then `flutter pub get`. The version [pub.dev shows][pubdev] is the current one.
+
+[pubdev]: https://pub.dev/packages/mithra_flutter_sdk
+
+<details>
+<summary>Depending on unreleased work</summary>
+
+A git dependency pins a moving branch rather than a version, so it has no
+upgrade path and no version solving against your other packages. Use it only to
+try a fix that has not been released yet, and move back to the hosted
+dependency once it has:
 
 ```yaml
 dependencies:
   mithra_flutter_sdk:
     git:
       url: https://github.com/MithraAI/mithra-flutter-sdk.git
-      ref: main
+      ref: v<latest tag>   # a release tag, not `main`
 ```
 
-Once the first version is published, a hosted dependency replaces it -- use the
-version pub.dev shows for the release you want:
-
-```yaml
-dependencies:
-  mithra_flutter_sdk: ^<published version>
-```
-
-Then `flutter pub get`.
+</details>
 
 ### Supported Flutter versions
 
@@ -122,14 +134,8 @@ XCFramework into `ios/Frameworks/`. So the whole iOS setup is:
 
 ```yaml
 dependencies:
-  mithra_flutter_sdk:
-    git:
-      url: https://github.com/MithraAI/mithra-flutter-sdk.git
-      ref: main
+  mithra_flutter_sdk: ^1.0.4
 ```
-
-(or the hosted dependency, once the package is published -- see
-[Install](#install))
 
 ```bash
 flutter pub get
@@ -710,6 +716,46 @@ inside the plugin before `pod install`; the podspec's `prepare_command` skips
 the download when the framework is already there. With SwiftPM, add a local
 package override pointing at your `narya-ios` checkout.
 
+## Privacy manifest
+
+The plugin ships an iOS privacy manifest, as Apple requires one per executable
+or dynamic library and a third-party SDK cannot rely on the host app's. It
+travels on both install paths: `s.resource_bundles` for CocoaPods, and the
+target's `resources` for Swift Package Manager.
+
+It declares no tracking (`NSPrivacyTracking` is `false`) — no IDFA, no
+`ATTrackingManager`, no tracking domains — and one required reason API,
+`NSPrivacyAccessedAPICategoryUserDefaults` with reason `CA92.1`, for the single
+namespaced flag the push-ownership check keeps there.
+
+The collected data types mirror the native SDK's declaration, since that is what
+calling this plugin's API causes to be collected:
+
+| Data type | In this SDK |
+| --- | --- |
+| `DeviceID` | `identifierForVendor` (while `collectDeviceId` is left at `true`), the generated anonymous id, and the APNs push token |
+| `UserID` | the `userId` you pass to `Narya.identify()` |
+| `ProductInteraction` | `Narya.track` / `Narya.screen`, in-app and push engagement |
+| `OtherDiagnosticData` | event context: app name/version/build, OS, locale, timezone, screen metrics, network reachability |
+| `OtherDataTypes` | traits and event properties your app supplies |
+
+Every entry declares `NSPrivacyCollectedDataTypeLinked` as `false`. This SDK
+holds no identity of its own: it forwards the opaque string you pass to
+`Narya.identify()`, and whether that string identifies a real person is your
+determination.
+
+**That makes the linkage yours to declare.** If you call `identify()` with an
+account id, your app links this data to a user identity even though the SDK
+declares that it does not, and your own privacy manifest and App Store privacy
+nutrition label have to say so. The same goes for anything you put in traits or
+event properties.
+
+`scripts/check-privacy-manifest.py` validates every value against Apple's
+published enumerations, checks both install paths still carry the file, and
+cross-checks the declared required reason APIs against the bridge's Swift in
+both directions. It runs in CI, against the repository and against the built
+distribution snapshot.
+
 ## Errors
 
 Every `PlatformException` from a channel is translated into `NaryaException`:
@@ -1008,6 +1054,11 @@ the `publish` job authenticates with a short-lived GitHub Actions OIDC token.
 
 ## License
 
-MIT. See [`LICENSE`](./LICENSE), which retains the upstream attribution carried
-by the native SDKs. The filename is the one pub.dev's package validator looks
-for, so there is a single license file rather than a copy under a second name.
+MIT. See [`LICENSE`](./LICENSE).
+
+Attribution for the upstream work the native SDKs derive from lives in
+[`NOTICE`](./NOTICE). It used to be appended to `LICENSE` itself, which cost the
+package its license detection: pub.dev matches the whole of `LICENSE` against
+the SPDX templates, and a second, differently-attributed license block below the
+first defeats the match, so the package was published as `license:unknown`.
+`LICENSE` now holds the MIT text and nothing else.
