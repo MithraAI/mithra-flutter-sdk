@@ -146,6 +146,7 @@ class NaryaConfiguration {
     this.session = const NaryaSessionConfiguration(),
     this.inApp = const NaryaInAppConfiguration(),
     this.logLevel = NaryaLogLevel.none,
+    this.startsOptedOut = false,
   });
 
   /// The Mithra Flutter client write key, used on both iOS and Android.
@@ -186,6 +187,18 @@ class NaryaConfiguration {
   /// How much the native SDK logs.
   final NaryaLogLevel logLevel;
 
+  /// Whether the SDK starts opted out, collecting nothing until
+  /// `Narya.setOptOut(false)`.
+  ///
+  /// Set it behind a consent prompt: `Narya.initialize` can then run at app
+  /// start — so the native lifecycle hooks are installed and a cold-start push
+  /// is handled — while nothing is persisted, requested or sent until the user
+  /// has answered.
+  ///
+  /// Only the first launch reads it. After that the persisted decision wins, so
+  /// a user who granted consent is not asked to grant it again.
+  final bool startsOptedOut;
+
   /// The wire form sent over the method channel.
   Map<String, Object?> toMap() {
     return <String, Object?>{
@@ -199,6 +212,7 @@ class NaryaConfiguration {
       'session': session.toMap(),
       'inApp': inApp.toMap(),
       'logLevel': logLevel.name,
+      'startsOptedOut': startsOptedOut,
     };
   }
 }

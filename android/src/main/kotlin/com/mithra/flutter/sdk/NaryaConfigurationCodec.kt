@@ -58,6 +58,7 @@ internal object NaryaConfigurationCodec {
             sessionConfiguration = decodeSession(source["session"] as? Map<*, *>),
             logLevel = decodeLogLevel(source["logLevel"] as? String),
             inApp = decodeInApp(source["inApp"] as? Map<*, *>),
+            startsOptedOut = source["startsOptedOut"] as? Boolean ?: false,
         )
     }
 

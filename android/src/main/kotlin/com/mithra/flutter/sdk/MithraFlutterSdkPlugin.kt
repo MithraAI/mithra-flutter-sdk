@@ -297,6 +297,13 @@ class MithraFlutterSdkPlugin :
                     result.success(null)
                 }
 
+                "setOptOut" -> withAnalytics(result) { analytics ->
+                    analytics.optOut = call.argument<Boolean>("optOut") ?: false
+                    result.success(null)
+                }
+
+                "optOut" -> withAnalytics(result) { result.success(it.optOut) }
+
                 "startSession" -> withAnalytics(result) {
                     it.startSession((call.argument("sessionId") as? Number)?.toLong())
                     result.success(null)

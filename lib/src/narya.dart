@@ -114,6 +114,54 @@ abstract final class Narya {
   /// Call it on sign-out.
   static Future<void> reset() => _platform.invoke('reset');
 
+  /// Stops or resumes collection.
+  ///
+  /// While opted out, every event API is a no-op, no batch is uploaded, no
+  /// source config is fetched, no push token is registered and the in-app
+  /// module stops syncing. Unlike [shutdown] this is reversible, which is what
+  /// a consent prompt needs: a user who withdraws consent can grant it again.
+  ///
+  /// The decision is persisted natively, so it survives relaunches. On the very
+  /// first launch it starts at [NaryaConfiguration.startsOptedOut].
+  ///
+  /// **Opting out discards whatever is still queued on the device.** Events
+  /// collected while consent was in force are not delivered after it is
+  /// withdrawn: sending a backlog after a user has said stop is the behaviour
+  /// that would surprise them. Call [flush] first if you need them delivered.
+  ///
+  /// ```dart
+  /// // Behind a consent prompt
+  /// await Narya.initialize(
+  ///   const NaryaConfiguration(writeKey: '…', startsOptedOut: true),
+  /// );
+  ///
+  /// // …once the person has chosen
+  /// await Narya.setOptOut(!consentGranted);
+  /// ```
+  ///
+  /// This does not delete data already delivered to Mithra. Handle erasure
+  /// requests through Mithra rather than through the SDK.
+  // The positional parameter keeps one vocabulary across the three SDKs:
+  // `analytics.optOut = true` on iOS and Android, `Narya.setOptOut(true)` here.
+  // Same reasoning as NaryaInAppManager.setAutoDisplayPaused.
+  // ignore: avoid_positional_boolean_parameters
+  static Future<void> setOptOut(bool optOut) {
+    return _platform.invoke('setOptOut', <String, Object?>{'optOut': optOut});
+  }
+
+  /// Whether the SDK has stopped collecting.
+  ///
+  /// Read from the native instance, so it reflects a decision persisted on an
+  /// earlier launch as well as one made in this one. See [setOptOut].
+  ///
+  /// Because the value is the native instance's, and no instance exists before
+  /// [initialize] completes, a read before then answers `false` -- "collecting"
+  /// -- rather than the persisted choice. A consent toggle bound straight to
+  /// this getter would therefore flash the wrong state on launch; read it after
+  /// [initialize] has completed.
+  static Future<bool> get optOut async =>
+      await _platform.invokeOptional<bool>('optOut') ?? false;
+
   /// Starts a session, optionally with a caller-supplied [sessionId].
   ///
   /// Only useful when

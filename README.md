@@ -128,8 +128,8 @@ platform :ios, '15.0'
 **You do not need to install or configure any native package manager.**
 Everything arrives through pub. `flutter run` (and `flutter build ios`) runs
 `pod install` for you, and the plugin's podspec `prepare_command` then
-downloads `MithraAnalytics-1.5.1.zip` from `https://sdk.mithra.com/ios/`,
-verifies it against the published `checksums-1.5.1.txt`, and unpacks the
+downloads `MithraAnalytics-1.6.0.zip` from `https://sdk.mithra.com/ios/`,
+verifies it against the published `checksums-1.6.0.txt`, and unpacks the
 XCFramework into `ios/Frameworks/`. So the whole iOS setup is:
 
 ```yaml
@@ -153,10 +153,10 @@ support](https://docs.flutter.dev/packages-and-plugins/swift-package-manager),
 the plugin also ships an SwiftPM path and Flutter will use it instead of the
 pod. `ios/mithra_flutter_sdk/Package.swift` resolves the hosted Swift package
 [`MithraAI/mithra-ios-sdk`](https://github.com/MithraAI/mithra-ios-sdk)
-`from: "1.5.1"`, product `MithraAnalytics`. Nothing to add on your side --
+`exact: "1.6.0"`, product `MithraAnalytics`. Nothing to add on your side --
 enabling SwiftPM in your Flutter tooling is the whole opt-in.
 
-Both paths pin the **same native SDK version** (1.5.1), and the Swift sources
+Both paths pin the **same native SDK version** (1.6.0), and the Swift sources
 are shared: the podspec and the Swift package both compile
 `ios/mithra_flutter_sdk/Sources/mithra_flutter_sdk/`.
 
@@ -164,7 +164,7 @@ are shared: the podspec and the Swift package both compile
 
 `minSdk 21`, JDK 17. The plugin declares the Mithra Maven repository itself, so
 no app-side repository configuration is required. It resolves
-`com.mithra.sdk:android:1.5.0`.
+`com.mithra.sdk:android:1.6.0`.
 
 `com.mithra.sdk:inapp-ui` is **not** a dependency: that artifact is the native
 Compose inbox UI, and a Flutter app builds its inbox from Flutter widgets over
@@ -236,6 +236,52 @@ final Map<String, Object?>? traits = await Narya.traits;
 Sessions are automatic by default. Drive them manually by setting
 `NaryaSessionConfiguration(automaticSessionTracking: false)` and calling
 `Narya.startSession()` / `Narya.endSession()`.
+
+## Consent and opt-out
+
+`Narya.setOptOut(true)` turns collection off; `false` turns it back on. While
+opted out, every event API is a no-op, no batch is uploaded, no source config
+is fetched, no push token is registered and the in-app module stops syncing.
+Unlike `Narya.shutdown()` this is reversible -- which is what a consent prompt
+needs, since a user who withdraws consent can grant it again.
+
+```dart
+// The user changed their mind in your settings screen
+await Narya.setOptOut(true);
+
+// ...and changed it back
+await Narya.setOptOut(false);
+
+final bool optedOut = await Narya.optOut;
+```
+
+The decision is persisted natively, so it survives relaunches. Two things
+follow from that:
+
+- **Opting out discards whatever is still queued on the device.** Events
+  collected while consent was in force are not delivered after it is withdrawn.
+  Call `Narya.flush()` first if you need them delivered.
+- **The SDK does not delete data already sent to Mithra.** Handle erasure
+  requests through Mithra, not through the SDK.
+
+Behind a CMP or a consent gate, call `Narya.initialize` at app start -- so the
+native lifecycle hooks are installed and a cold-start push is handled -- but
+start opted out, and let the user's answer decide:
+
+```dart
+await Narya.initialize(
+  const NaryaConfiguration(
+    writeKey: '<MITHRA_FLUTTER_WRITE_KEY>',
+    startsOptedOut: true,
+  ),
+);
+
+// ...once the CMP has an answer
+await Narya.setOptOut(!consentGranted);
+```
+
+`startsOptedOut` is only read on the first launch; after that the persisted
+decision wins, so a user who granted consent is not asked again.
 
 ## Screen tracking
 
@@ -460,9 +506,9 @@ a separate process that Flutter never runs in.
    - **SwiftPM**: add the `mithra-ios-sdk` package to the extension target and
      select the `MithraAnalyticsNotificationService` product.
    - **CocoaPods**: the plugin's podspec does not vendor the extension
-     framework. Download `MithraAnalyticsNotificationService-1.5.1.zip` from
+     framework. Download `MithraAnalyticsNotificationService-1.6.0.zip` from
      `https://sdk.mithra.com/ios/` (verify it against
-     `checksums-1.5.1.txt`) and embed the XCFramework in the extension target.
+     `checksums-1.6.0.txt`) and embed the XCFramework in the extension target.
 3. Make the extension's principal class subclass the SDK's service class, per
    [`narya-ios`](https://github.com/MithraAI/narya-ios)'s README.
 

@@ -45,6 +45,7 @@ enum NaryaConfigurationCodec {
             environment: environment,
             gzipEnabled: source["gzipEnabled"] as? Bool ?? false,
             collectDeviceId: source["collectDeviceId"] as? Bool ?? true,
+            startsOptedOut: source["startsOptedOut"] as? Bool ?? false,
             trackApplicationLifecycleEvents:
                 source["trackApplicationLifecycleEvents"] as? Bool ?? true,
             // Flutter screen tracking is NaryaRouteObserver; the native option

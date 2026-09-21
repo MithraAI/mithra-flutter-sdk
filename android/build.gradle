@@ -1,5 +1,5 @@
 group = 'com.mithra.flutter.sdk'
-version = '1.0.5' // x-release-please-version
+version = '1.1.0' // x-release-please-version
 
 buildscript {
     ext.kotlin_version = '1.9.0'
@@ -26,7 +26,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 // The pinned Narya Android SDK version this bridge is written against.
-ext.naryaAndroidSdkVersion = '1.5.0'
+ext.naryaAndroidSdkVersion = '1.6.0'
 
 android {
     namespace = 'com.mithra.flutter.sdk'
@@ -88,8 +88,8 @@ dependencies {
 //
 // By default the bridge resolves com.mithra.sdk:android from
 // https://sdk.mithra.com/maven. To build against a local narya-android checkout
-// instead - which is what the Flutter demo does while both are in flight - set
-// the flag in the *consuming app's* android/gradle.properties (or in
+// instead - which is what narya-demo-android does while both are in flight -
+// set the flag in the *consuming app's* android/gradle.properties (or in
 // ~/.gradle/gradle.properties):
 //
 //     naryaUseLocalSdk=true
@@ -115,6 +115,27 @@ dependencies {
 // The property name and substitution shape match narya-demo-android's
 // settings.gradle.kts so a single machine-wide override works for both. The
 // logging below makes the resolution visible in the build output.
+//
+// Limitation (measured 2026-09-20): the composite build above does NOT work for
+// narya-demo-flutter. That app builds on Gradle 9.3.1 / AGP 9.1.0, and an
+// included build is evaluated by the *including* build's Gradle version, so
+// narya-android's build.gradle.kts gets compiled under Gradle 9.x - which has
+// removed `Project.exec` and `dependencyProject`, both of which it still uses.
+// The build script compilation fails outright. narya-demo-android is on an
+// older Gradle, so the path above remains valid there.
+//
+// For the Flutter demo, publish a local snapshot from narya-android using its
+// own 8.9 wrapper instead:
+//
+//     ./gradlew publishToMavenLocal -PsnapshotModules=core,android,inapp-ui
+//
+// then point naryaAndroidSdkVersion (above) at that -SNAPSHOT version and add
+// mavenLocal() to the repositories list at the top of this file.
+//
+// Whichever path is used: after switching the native dependency source, run
+// `flutter clean` *and* delete narya-flutter/android/build by hand. Kotlin
+// incremental compilation otherwise reports spurious errors such as
+// "Unresolved reference 'NaryaPushBridge'".
 if (providers.gradleProperty('naryaUseLocalSdk').orNull == 'true') {
     logger.lifecycle(
             "mithra_flutter_sdk: naryaUseLocalSdk=true; expecting the consuming app's " +

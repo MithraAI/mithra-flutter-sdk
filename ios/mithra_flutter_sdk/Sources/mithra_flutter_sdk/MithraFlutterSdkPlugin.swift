@@ -233,6 +233,15 @@ public class MithraFlutterSdkPlugin: NSObject, FlutterPlugin {
                 result(nil)
             }
 
+        case "setOptOut":
+            withAnalytics(result) {
+                $0.optOut = (arguments["optOut"] as? Bool) ?? false
+                result(nil)
+            }
+
+        case "optOut":
+            withAnalytics(result) { result($0.optOut) }
+
         case "startSession":
             withAnalytics(result) {
                 $0.startSession(
